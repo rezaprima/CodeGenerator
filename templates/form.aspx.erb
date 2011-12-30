@@ -1,0 +1,114 @@
+<%@ Page Language="C#" MasterPageFile="~/MasterPageApp.master" AutoEventWireup="true"
+    CodeFile="Form[%=class_name%].aspx.cs" Inherits="Form[%=class_name%]"
+    Title="Edit [%=class_name%]" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="ContentPlaceHolder1" runat="Server">
+    <br />
+    <asp:HiddenField runat="server" ID="hfId" />
+    <asp:HiddenField runat="server" ID="hfIsid" />
+    <script language="javascript" type="text/javascript" src="../../../script/freeze.js" />
+    <script language="javascript" type="text/javascript" src="../../../script/validation.js" />
+    <script language="javascript" type="text/javascript" src="../../../script/numeric-conversion.js" />
+    <script language="javascript" type="text/javascript" src="../../../script/wforms_pack.js" />
+    <script language="javascript" type="text/javascript" src="../../../script/custom.js" />
+    <br />
+    <br />
+    <script language="javascript" type="text/javascript">sleep(500);//race condition?</script>
+
+    <div id="createForm">
+    <table class="form">
+        <tr>
+            <th colspan="5" class="errorMessage">
+                <asp:Label ID="ErrorMessage" runat="server" Text=""></asp:Label>
+            </th>
+        </tr>
+[% ordinary_fields.each do |field| %]
+        <tr>
+            <td colspan="2">
+                [%=(field.required? ? "*#{field.title_name}" : field.title_name) %]
+            </td>
+            <td>
+                :</td>
+            <td colspan="2">
+[%   if field.reference? %]
+                <asp:DropDownList ID="ddl[%=field.plain_name%]" runat="server" CssClass="[%='required' if field.required? %]" AppendDataBoundItems="true">
+                    <asp:ListItem Value="">Select [%=field.title_name%]</asp:ListItem>
+                </asp:DropDownList>
+[%   elsif field.lookup? %]
+                <asp:DropDownList ID="ddl[%=field.plain_name%]" runat="server" CssClass="[%='required' if field.required? %]" AppendDataBoundItems="true">
+                    <asp:ListItem Value="">Select [%=field.title_name%]</asp:ListItem>
+                </asp:DropDownList>
+[%   elsif false # if field.radiolist? %]
+                <asp:RadioButtonList runat="server" ID="rdlNtbTierProgressive">
+                    <asp:ListItem Value="1" Text="Progressive Tiering"/>
+                    <asp:ListItem Value="0" Text="Normal Tiering"/>
+                </asp:RadioButtonList>
+[%   elsif field.datetime? %]
+                <cc1:GMDatePicker ID="dt[%=field.plain_name%]" runat="server"
+                    CalendarFont-Names="Arial" CalendarTheme="Blue"
+                    AutoPosition="true" DisplayMode="Label"
+                    InitialValueMode="Null">
+                    <CalendarDayStyle Font-Size="9pt" />
+                    <CalendarTodayDayStyle BorderWidth="1" BorderColor="darkred" Font-Bold="true" />
+                    <CalendarOtherMonthDayStyle BackColor="whitesmoke" />
+                    <CalendarTitleStyle BackColor="#E0E0E0" Font-Names="Arial" Font-Size="9pt" />
+                    <CalendarTodayDayStyle BackColor="Aquamarine" BorderColor="Azure" />
+                    <CalendarNextPrevStyle BackColor="AliceBlue" BorderColor="Coral" />
+                </cc1:GMDatePicker>
+[%   elsif field.boolean? %]
+                <asp:CheckBox ID="chk[%=field.plain_name%]" runat="server" />[%=field.title_name%]
+[%   elsif field.numeric? %]
+                <asp:TextBox ID="txt[%=field.plain_name%]" runat="server" onkeyup="IsNumeric(event,this)"
+                    Width="100px" CssClass="numeric [%='required' if field.required? %]" MaxLength="16" onblur="SetNumericMaxValue(this)"/>
+[%   else %]
+                <asp:TextBox ID="txt[%=field.plain_name%]" runat="server"
+                    Width="100px" CssClass="[%='required' if field.required? %]" MaxLength="16"/>
+[%   end %]
+            </td>
+        </tr>
+[% end %]
+[% subtables.each do |subtable| %]
+        <tr>
+          <td colspan="5" valign="top">
+            <b>[%=subtable.class_name%]</b><br />
+            </td>
+            <td colspan="2">
+            <div class="DgListDiv">
+              <asp:DataGrid ID="[%=subtable.class_name%]List" runat="server" AllowPaging="true" AllowSorting="false"
+                    AutoGenerateColumns="false" BorderColor="black" BorderWidth="1" CellPadding="4"
+                    CellSpacing="2" GridLines="None" HeaderStyle-BorderStyle="Double" HeaderStyle-BorderWidth="1"
+                    ItemStyle-BackColor="#e3dfdf"
+                    OnItemCommand="[%=subtable.class_name%]ListItemCommand"
+                    OnPageIndexChanged="[%=subtable.class_name%]ListPageIndexChanged"
+                    OnItemDataBound="[%=subtable.class_name%]ListItemDataBound"
+                    PagerStyle-Mode="NumericPages"
+                    PagerStyle-Position="Top" ShowFooter="true">
+                 <Columns>
+[%   subtable.ordinary_fields.each do |sfield| %]
+                    <asp:BoundColumn HeaderText="[%=sfield.title_name%]" DataField="[%=sfield.name%]" />
+[%   end %]
+                    <asp:ButtonColumn CommandName="cmdDelete[%=subtable.class_name%]" Text="Delete" />
+                 </Columns>
+                 <PagerStyle HorizontalAlign="Right" NextPageText="Next" PrevPageText="Previous" />
+              </asp:DataGrid>
+            </div>
+            <br/>
+            <div class="BtnAddEditDiv">
+               <asp:Button ID="bAdd[%=subtable.class_name%]" runat="server" Text="Add" OnClick="Add[%=subtable.class_name%]"/>
+            </div>
+          </td>
+        </tr>
+[% end %]
+        <tr>
+            <th colspan="5" align="center">
+                <asp:Button ID="bNext" runat="server" Text="Next" OnClick="Next" Visible="false" />
+                <asp:Button ID="bSubmit" runat="server" Text="Save" OnClick="Submit" Visible="true" />
+                <asp:Button ID="bBack" runat="server" OnClick="Back" Text="Back" OnClientClick="cancel()"
+                    CausesValidation="false" />
+                <asp:Button ID="bReset" runat="server" OnClick="Reset" Text="Reset" OnClientClick="cancel()"
+                    CausesValidation="false" />
+            </th>
+        </tr>
+    </table>
+  </div>
+</asp:Content>

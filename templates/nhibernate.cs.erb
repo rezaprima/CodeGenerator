@@ -1,0 +1,160 @@
+using System;
+using System.Collections;
+using Spring.Data.NHibernate.Support;
+using Spring.Transaction.Interceptor;
+using Domain;
+using NHibernate.Expression;
+using NHibernate;
+
+[% primary_key ||= fields.select{|field| field.primary_key?}.first %]
+namespace Dao.NHibernate
+{
+    public class Hibernate[%=class_name%]Dao : HibernateDaoSupport, I[%=class_name%]Dao
+    {
+
+        public [%=class_name%] FindById(Decimal int[%=class_name%]IdPk)
+        {
+            return HibernateTemplate.Load(typeof([%=class_name%]), int[%=class_name%]IdPk) as [%=class_name%];
+        }
+
+        public IList FindByIdList(Decimal int[%=class_name%]IdPk)
+        {
+            return HibernateTemplate.Find("from [%=class_name%] where [%=primary_key.column_name%] = ?", int[%=class_name%]IdPk);
+        }
+
+        public IList FindAll()
+        {
+            return HibernateTemplate.LoadAll(typeof([%=class_name%]));
+        }
+
+        [Transaction(ReadOnly=false)]
+        public [%=class_name%] Save([%=class_name%] obj, String category, Decimal masterId, bool needApproval)
+        {
+            HibernateTemplate.Save(obj);
+            return obj;
+        }
+
+        [Transaction(ReadOnly=false)]
+        public Object SaveGeneric(Object obj, String category, Decimal masterId, bool needApproval)
+        {
+            HibernateTemplate.Save(obj);
+            return obj;
+        }
+
+        [Transaction(ReadOnly=false)]
+        public [%=class_name%] SaveOrUpdate([%=class_name%] obj, String category, Decimal masterId, bool needApproval)
+        {
+            HibernateTemplate.SaveOrUpdate(obj);
+            return obj;
+        }
+
+        [Transaction(ReadOnly=false)]
+        public Object SaveOrUpdateGeneric(Object obj, String category, Decimal masterId, bool needApproval)
+        {
+            HibernateTemplate.SaveOrUpdate(obj);
+            return obj;
+        }
+
+        [Transaction(ReadOnly=false)]
+        public void Delete([%=class_name%] obj, String category, Decimal masterId, bool needApproval)
+        {
+            HibernateTemplate.Delete(obj);
+        }
+
+        [Transaction(ReadOnly=false)]
+        public void DeleteGeneric(Object obj, String category, Decimal masterId, bool needApproval)
+        {
+            HibernateTemplate.Delete(obj);
+        }
+
+        public Decimal GetLastIndex()
+        {
+            IList objLastIndex;
+            objLastIndex = SessionFactory.OpenSession()
+            .CreateCriteria(typeof([%=class_name%]))
+            .AddOrder(Order.Desc("[%=primary_key.column_name%]"))
+            .SetMaxResults(1)
+            .List();
+
+            if (objLastIndex != null)
+            {
+                 IEnumerator num = objLastIndex.GetEnumerator();
+                 if (num.MoveNext())
+                 {
+                    [%=class_name%] objLastIndexItem =  ([%=class_name%])num.Current;
+                    return objLastIndexItem.[%=primary_key.name%];
+                }
+            }
+            return 0;
+        }
+
+        public bool IsExists(Decimal primary_key)
+        {
+            string query = "from [%=class_name%] where [%=primary_key.column_name%] = " + primary_key ;
+            IList listResult = HibernateTemplate.Find(query);
+            if (listResult != null)
+            {
+                IEnumerator num = listResult.GetEnumerator();
+                if (num != null)
+                {
+                    if (num.MoveNext())
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        public bool IsExists(string columnName, object columnValue, string type)
+        {
+            string query = "";
+            if (type.ToLower().Equals("string".ToLower()))
+            {
+                string strColumnValue = "'" + columnValue + "'";
+                query = "from [%=class_name%] where " + columnName + " = " + strColumnValue + "";
+            }
+            else if (type.ToLower().Equals("Decimal".ToLower()))
+            {
+                Decimal intColumnValue = Convert.ToDecimal(columnValue);
+                query = "from [%=class_name%] where " + columnName + " = " + intColumnValue + "";
+            }
+            
+            IList listLookup = HibernateTemplate.Find(query);
+            if (listLookup != null)
+            {
+                IEnumerator num = listLookup.GetEnumerator();
+                if (num != null)
+                {
+                    if (num.MoveNext())
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        public IList FindByCondition(String strQuery)
+        {
+            return HibernateTemplate.Find("from [%=class_name%]" + strQuery);
+        }
+        public IList FindGeneric(String strQuery)
+        {
+            return HibernateTemplate.Find(strQuery);
+        }
+
+        public IList FindAssociatedTable(String strTableName, String strForeignKeyColumn, Decimal intForeignKeyValue)
+        {
+            string strWhereCondition = "";
+            if (strForeignKeyColumn != null && strForeignKeyColumn.Length > 0 )
+                strWhereCondition = " WHERE " + strForeignKeyColumn + " = " + intForeignKeyValue;
+            return HibernateTemplate.Find("from " + strTableName + strWhereCondition);
+        }
+
+        public IList FindSequence(string query)
+        {
+            return Session.CreateSQLQuery(query).AddScalar("lastSeq", NHibernateUtil.Decimal).List();
+        }
+    }
+}

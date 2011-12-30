@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+[% sequence_name ||= table_name+'_seq' %]
+[% primary_key = fields.select{|field| field.primary_key?}.first %]
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2"  default-lazy="true" assembly="NHibernate" namespace="NHibernate"  >
+  <class name="Domain.[%=class_name%], Dao" table="[%=table_name%]"  lazy="false" >
+    <id name="[%=primary_key.name%]" type="Decimal" column="[%=primary_key.column_name%]" unsaved-value="0">
+      <generator class="sequence">
+        <param name="sequence">[%=sequence_name%]</param>
+      </generator>
+    </id>
+[% (fields-[primary_key]).reject{|f| f.subtable_reference?}.each do |field| %]
+    <property name="[%=field.name%]" column="[%=field.column_name%]" type="[%=field.csharp_datatype%]" not-null="[%= field.nullable? ? 'false':'true' %]" />
+[% end %]
+
+[% references.each do |reference| %]    
+    <many-to-one name="cls[%=reference.class_name%]" column="[%=reference.primary_key.column_name%]" class="Domain.[%=reference.class_name%], Dao" cascade="all"/>
+[% end %]
+[% (fields-[primary_key]).select{|f| f.subtable_reference?}.each do |reference| %]
+    <many-to-one name="cls[%=reference.reference_class_name%]" column="[%=reference.reference_key%]" class="Domain.[%=reference.reference_class_name%], Dao" not-null="true"/>
+[% end %]
+
+[% subtables.each do |subtable| %]
+    <bag name="cls[%=subtable.class_name%]s" table="[%=subtable.table_name%]" inverse="true" lazy="false" cascade="all">
+      <key column="[%=primary_key.column_name%]" foreign-key="[%=primary_key.column_name%]"/>
+      <one-to-many class="Domain.[%=subtable.class_name%], Dao" not-found="ignore"/>
+    </bag>
+[% end %]
+  </class>
+</hibernate-mapping>

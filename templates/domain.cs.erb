@@ -1,0 +1,232 @@
+[% logging_fields = %w(intCreatedBy dtCreatedDate intUpdatedBy dtUpdatedDate intApprovedBy dtApprovedDate) %]
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Collections;
+using System.Xml;
+using System.IO;
+
+namespace Domain
+{
+    public class [%=class_name%] : DataObject
+    {
+        #region Fields
+[% fields.each do |field| %]
+        protected [%=field.datatype%] [%=field.name%]Value;
+[% end %]
+[% references.each do |ref| %]
+        protected [%=ref.class_name%] cls[%=ref.class_name%]Value;
+[% end %]
+
+[% subtables.each do |subtable| %]
+        protected IList<[%=subtable.class_name%]> cls[%=subtable.class_name%]sValue = new List<[%=subtable.class_name%]>();
+[% end %]
+        #endregion
+
+        #region Properties
+
+[% fields.each do |field| %]
+[%   if logging_fields.include? field.name %]
+        public override [%=field.datatype%] [%=field.name%]
+        {
+            get { return [%=field.name%]Value; }
+            set { [%=field.name%]Value = value; }
+        }
+[%   else %]
+        public [%=field.datatype%] [%=field.name%]
+        {
+            get { return [%=field.name%]Value; }
+            set { [%=field.name%]Value = value; }
+        }
+[%   end %]
+
+[% end %]
+
+[% references.each do |ref| %]
+        public [%=ref.class_name%] cls[%=ref.class_name%]
+        {
+            get { return cls[%=ref.class_name%]Value; }
+            set { cls[%=ref.class_name%]Value = value; }
+        }
+
+[% end %]
+[% subtables.each do |subtable| %]
+        public IList<[%=subtable.class_name%]> cls[%=subtable.class_name%]s
+        {
+            get { return cls[%=subtable.class_name%]sValue; }
+            set { cls[%=subtable.class_name%]sValue = value; }
+        }
+
+[% end %]
+[% if(pk=fields.find{|field| field.primary_key?}) %]
+		public override [%=pk.datatype%] intPrimaryKey
+		{
+			get { return [%=pk.name%]; }
+		}
+[% end %]
+
+        #endregion
+
+        #region Approval Methods
+
+        public string toString2([%=class_name%] obj[%=class_name%])
+        {
+            String strXML = "<DATA>";
+[% fields.each do |field| %]
+[%   if field.boolean? %]
+            strXML += "<[%=field.column_name%]>" + (obj[%=class_name%].[%=field.name%] ? "1" : "0") + "</[%=field.column_name%]>";
+[%   else %]
+            strXML += "<[%=field.column_name%]>" + obj[%=class_name%].[%=field.name%] + "</[%=field.column_name%]>";
+[%   end %]
+[% end %]
+            return strXML + "</DATA>";
+        }
+
+        public string toString([%=class_name%] obj[%=class_name%])
+        {
+            StringBuilder sb = new StringBuilder();
+            StringWriter  sw = new StringWriter(sb);
+            XmlTextWriter xw = new XmlTextWriter(sw);
+
+[% fields.each do |field| %]
+[%   if field.boolean? %]
+            xw.WriteElementString("[%=field.column_name%]", (obj[%=class_name%].[%=field.name%] ? "1" : "0"));
+[%   else %]
+            xw.WriteElementString("[%=field.column_name%]", (""+obj[%=class_name%].[%=field.name%]));
+[%   end %]
+[% end %]
+            return "<DATA>" + sb.ToString() + "</DATA>";
+        }
+
+        public override string toString()
+        {
+            return toString(this);
+        }
+
+        public override string TableName
+        {
+            get { return "[%=table_name%]"; }
+        }
+
+        public override String toApprovalXML()
+        {
+            String strApprovalData = "";
+            strApprovalData += "<[%=table_name%]>";
+            strApprovalData += this.toString();
+            strApprovalData += "</[%=table_name%]>";
+
+[% subtables.each do |subtable| %]
+[%   if false #if one_or_many == :one %]
+            if (cls[%=subtable.class_name%] != null)
+            {
+                [%=subtable.class_name%] obj[%=subtable.class_name%] = cls[%=subtable.class_name%];
+                {
+                    strApprovalData += "<[%=subtable.table_name%]>";
+                    strApprovalData += obj[%=subtable.class_name%].toString();
+                    strApprovalData += "</[%=subtable.table_name%]>";
+                }
+            }
+[%   else %]
+            if (cls[%=subtable.class_name%]s != null && cls[%=subtable.class_name%]s.Count > 0)
+            {
+                strApprovalData += "<[%=subtable.table_name%]_LIST>";
+                foreach ([%=subtable.class_name%] obj[%=subtable.class_name%] in cls[%=subtable.class_name%]s)
+                {
+                    strApprovalData += "<[%=subtable.table_name%]>";
+                    strApprovalData += obj[%=subtable.class_name%].toString();
+                    strApprovalData += "</[%=subtable.table_name%]>";
+                }
+                strApprovalData += "</[%=subtable.table_name%]_LIST>";
+            }
+[%   end %]
+[% end %]
+            return "<DATA>"+strApprovalData+"</DATA>";
+        }
+
+        public [%=class_name%] toObject(String strXML)
+        {
+            [%=class_name%] obj[%=class_name%] = new [%=class_name%]();
+            Stream stream = new MemoryStream(ASCIIEncoding.Default.GetBytes(strXML));
+            XmlDocument document = new XmlDocument(); XmlTextReader reader = new XmlTextReader(stream); document.Load(reader); reader.Close(); XmlNode node = document.FirstChild;
+            foreach (XmlNode childNode in node.ChildNodes) 
+            {
+				string name = childNode.Name;
+[% fields.each do |field| %]
+[%   if field.numeric? %]
+				if (childNode.Name.Equals("[%=field.column_name%]"))
+				{
+					string queryContent = childNode.InnerXml;
+					if (!queryContent.Equals(""))
+						obj[%=class_name%].[%=field.name%] = Convert.ToDecimal(queryContent);
+				}
+[%   elsif field.string? %]
+				if (childNode.Name.Equals("[%=field.column_name%]"))
+				{
+					string queryContent = childNode.InnerXml;
+					if (!queryContent.Equals(""))
+						obj[%=class_name%].[%=field.name%] = queryContent;
+				}
+[%   elsif field.datetime? %]
+				if (childNode.Name.Equals("[%=field.column_name%]"))
+				{
+					string queryContent = childNode.InnerXml;
+					if (!queryContent.Equals(""))
+						obj[%=class_name%].[%=field.name%] = Convert.ToDateTime(queryContent);
+				}
+[%   elsif field.boolean? %]
+				if (childNode.Name.Equals("[%=field.column_name%]"))
+				{
+					string queryContent = childNode.InnerXml;
+					if (!queryContent.Equals(""))
+						obj[%=class_name%].[%=field.name%] = queryContent=="1";
+				}
+[%   end %]
+[% end %]
+            }
+            return obj[%=class_name%];
+        }
+
+        public static [%=class_name%] fromApprovalData(XmlDocument document, byte[] byteArray1, byte[] byteArray2)
+        {
+            [%=class_name%] obj[%=class_name%] = new [%=class_name%]();
+            foreach (XmlNode node in document.FirstChild)
+            {
+                if (node.Name.Equals("[%=table_name%]"))
+                {
+                    obj[%=class_name%] = obj[%=class_name%].toObject(node.InnerXml);
+                }
+[% subtables.each do |subtable| %]
+[%  if false #if one_or_many == :one %]
+                if (node.Name.Equals("[%=subtable.table_name%]"))
+                {
+                    [%=subtable.class_name%] obj[%=subtable.class_name%] = new [%=subtable.class_name%]();
+                    obj[%=subtable.class_name%] = obj[%=subtable.class_name%].toObject(node.InnerXml);
+                    obj[%=class_name%].cls[%=subtable.class_name%] = obj[%=subtable.class_name%];
+                }
+[%   else %]
+                if (node.Name.Equals("[%=subtable.table_name%]_LIST"))
+                {
+                    foreach (XmlNode childNode in node.ChildNodes)
+                    {
+                        [%=subtable.class_name%] obj[%=subtable.class_name%] = new [%=subtable.class_name%]();
+                        obj[%=subtable.class_name%] = obj[%=subtable.class_name%].toObject(childNode.InnerXml);
+                        obj[%=class_name%].cls[%=subtable.class_name%]s.Add(obj[%=subtable.class_name%]);
+                    }
+                }
+[%   end %]
+[% end %]
+            }
+            // PUT Byte Array Data here
+            return obj[%=class_name%];
+        }
+        #endregion
+
+
+        #region Constructor (s)
+
+        public [%=class_name%]()
+        {
+        }
+        #endregion
+    }
+}

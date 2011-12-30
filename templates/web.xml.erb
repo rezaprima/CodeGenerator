@@ -1,0 +1,72 @@
+  <object name="[%=class_name%]Controller" type="NHibernate[%=class_name%]Controller">
+    <constructor-arg name="sessionFactory" ref="NHibernateSessionFactory"/>
+  </object>
+
+  <object type="~/src/[%=prefix_path%]/List[%=class_name%].aspx" parent="basePage">
+    <property name="[%=class_name%]Dao" ref="[%=class_name%]Dao" />
+    <property name="[%=class_name%]Controller" ref="[%=class_name%]Controller" />
+    <property name="Results">
+      <dictionary>
+        <entry key="cmdAdd[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Add[%=class_name%].aspx" />
+        <entry key="cmdDetail[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Detail[%=class_name%].aspx" />
+        <entry key="cmdDelete[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Delete[%=class_name%].aspx" />
+        <entry key="cmdEdit[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Edit[%=class_name%].aspx" />
+        <entry key="cmdCopy[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Copy[%=class_name%].aspx" />
+      </dictionary>
+    </property>
+  </object>
+
+  <object type="~/src/[%=prefix_path%]/Form[%=class_name%].aspx" parent="basePage">
+    <property name="[%=class_name%]Dao" ref="[%=class_name%]Dao" />
+    <property name="[%=class_name%]Controller" ref="[%=class_name%]Controller" />
+    <property name="Results">
+      <dictionary>
+        <entry key="self" value="redirect:~/src/[%=prefix_path%]/Form[%=class_name%].aspx" />
+        <entry key="cmdList[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/List[%=class_name%].aspx" />
+        <entry key="cmdReview[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Form[%=class_name%].aspx" />
+        <entry key="cmdEdit[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Edit[%=class_name%].aspx" />
+[% subtables.each do |subtable| %]
+        <entry key="cmdAdd[%=subtable.class_name%]" value="redirect:~/src/[%=prefix_path%]/Add[%=subtable.class_name%].aspx" />
+[% end %]
+      </dictionary>
+    </property>
+  </object>
+
+  <object type="~/src/[%=prefix_path%]/Add[%=class_name%].aspx" parent="basePage">
+    <property name="Results">
+      <dictionary>
+        <entry key="cmdEdit[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Edit[%=class_name%].aspx" />
+      </dictionary>
+    </property>
+  </object>
+
+  <object type="~/src/[%=prefix_path%]/Edit[%=class_name%].aspx" parent="basePage">
+    <property name="[%=class_name%]Dao" ref="[%=class_name%]Dao" />
+    <property name="CategoryDao" ref="CategoryDao" />
+    <property name="Results">
+      <dictionary>
+        <entry key="cmdList[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/List[%=class_name%].aspx" />
+        <entry key="cmdDetail[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Detail[%=class_name%].aspx"/>
+      </dictionary>
+    </property>
+  </object>
+
+  <object type="~/src/[%=prefix_path%]/Delete[%=class_name%].aspx" parent="basePage">
+    <property name="Results">
+      <dictionary>
+        <entry key="cmdDetail[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Detail[%=class_name%].aspx"/>
+        <entry key="cmdEdit[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Edit[%=class_name%].aspx" />
+      </dictionary>
+    </property>
+  </object>
+
+  <object type="~/src/[%=prefix_path%]/Detail[%=class_name%].aspx" parent="basePage">
+    <property name="Results">
+      <dictionary>
+        <entry key="cmdAdd[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Add[%=class_name%].aspx"/>
+        <entry key="cmdList[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/EditLevelDetail.aspx" />
+        <entry key="cmdEdit[%=class_name%]" value="redirect:~/src/[%=prefix_path%]/Edit[%=class_name%].aspx"/>
+        <entry key="cmdWorkspace" value="redirect:~/src/Workspace/Workspace.aspx" />
+      </dictionary>
+    </property>
+  </object>

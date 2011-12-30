@@ -1,0 +1,7 @@
+require 'domain_class_generator'
+require 'hbm_xml_generator'
+require 'hibernate_dao_generator'
+require 'hibernate_dao_interface_generator'
+require 'sql_generator'
+require 'aspx_form_generator'
+require 'controller_generator'

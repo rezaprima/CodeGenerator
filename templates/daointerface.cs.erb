@@ -1,0 +1,43 @@
+using System;
+using System.Collections;
+using Domain;
+
+namespace Dao
+{
+    public interface I[%=class_name%]Dao
+    {
+
+        [%=class_name%] FindById(Decimal int[%=class_name%]IdPk);
+
+        IList FindByIdList(Decimal int[%=class_name%]IdPk);
+
+        IList FindAll();
+
+        [%=class_name%] Save([%=class_name%] obj, String category, Decimal masterId, bool needApproval);
+
+        Object SaveGeneric(Object obj, String category, Decimal masterId, bool needApproval);
+
+        [%=class_name%] SaveOrUpdate([%=class_name%] obj, String category, Decimal masterId, bool needApproval);
+
+        Object SaveOrUpdateGeneric(Object obj, String category, Decimal masterId, bool needApproval);
+
+        void Delete([%=class_name%] obj, String category, Decimal masterId, bool needApproval);
+
+        void DeleteGeneric(Object obj, String category, Decimal masterId, bool needApproval);
+
+        Decimal GetLastIndex();
+
+        bool IsExists(Decimal intIdPk);
+
+        bool IsExists(string columnName, object columnValue, string type);
+
+        IList FindByCondition(string query);
+
+        IList FindGeneric(string query);
+
+        IList FindAssociatedTable(String strTableName, String strForeignKeyColumn, Decimal intForeignKeyValue);
+
+        IList FindSequence(string query);
+
+    }
+}

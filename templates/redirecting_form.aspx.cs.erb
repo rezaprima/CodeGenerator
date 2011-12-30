@@ -1,0 +1,84 @@
+using System;
+using System.Data;
+using System.Configuration;
+using System.Collections;
+using System.Web;
+using System.Web.Security;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using System.Web.UI.WebControls.WebParts;
+using System.Web.UI.HtmlControls;
+using Dao.NHibernate;
+using Domain;
+using Dao;
+
+public partial class [%=action%][%=class_name%] : Spring.Web.UI.Page
+{
+    private I[%=class_name%]Dao idao[%=class_name%]Dao;
+    private [%=class_name%] obj[%=class_name%];
+    private I[%=class_name%]Controller ictl[%=class_name%]Controller;
+
+    public I[%=class_name%]Dao [%=class_name%]Dao
+    {
+        set { this.idao[%=class_name%]Dao = value; }
+    }
+
+    public I[%=class_name%]Controller [%=class_name%]Controller
+    {
+        get { return this.ictl[%=class_name%]Controller; }
+        set { this.ictl[%=class_name%]Controller = value; }
+    }
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        //PreventUnauthorizedLinkAccess();
+        Session["[%=action%][%=class_name%].authorized"] = true;
+        Session["[%=action%][%=class_name%].approvalNeeded"] = ApprovalNeeded();
+        Session["model"]=null;
+        Response.Redirect(ResolveUrl("Form[%=class_name%].aspx"));
+    }
+
+    /**
+     * Mengecek apakah user ini memiliki hak untuk mengakses halaman ini
+     */
+    protected bool ApprovalNeeded()
+    {
+        try
+        {
+            Hashtable needApproval = (Hashtable)Session["menuNeedApproval"];
+            bool needApproved = (bool)needApproval[Request.ServerVariables["SCRIPT_NAME"].Trim()];
+            return needApproved;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    protected void PreventUnauthorizedLinkAccess()
+    {
+        // link ini merupakan daftar link yang boleh di akses user (diambil saat login)
+        Hashtable authorizedLinks = (Hashtable)Session["link"];
+
+        String scriptName = Request.ServerVariables["SCRIPT_NAME"];
+        if (!authorizedLinks.Contains(scriptName.Trim()) && !scriptName.Contains("ErrorPage"))
+        {
+            Session["ErrorType"] = "Privileges";
+            Response.Redirect(ResolveUrl("~/ErrorPage.aspx"));
+        }
+    }
+    private void ClearPageSession()
+    {
+        Session["Current[%=class_name%]"] = null;
+
+        /*
+         * Make sure
+         * */
+        Session["needApprovedCopy[%=class_name%]"] = null;
+        Session["needApprovedAdd[%=class_name%]"] = null;
+        Session["needApprovedEdit[%=class_name%]"] = null;
+        Session["needApprovedDelete[%=class_name%]"] = null;
+
+    }
+
+}

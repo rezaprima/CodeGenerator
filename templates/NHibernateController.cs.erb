@@ -1,0 +1,115 @@
+using System;
+using System.Web;
+using Spring.Data.NHibernate;
+using NHibernate;
+using Domain;
+
+    public class NHibernate[%=class_name%]Controller : I[%=class_name%]Controller
+    {
+        private readonly ISessionFactory sessionFactory;
+        private [%=class_name%] objCurrent[%=class_name%]Edit;
+        private [%=class_name%] objCurrent[%=class_name%]Delete;
+        private [%=class_name%] objCurrent[%=class_name%]Detail;
+        private [%=class_name%] objCurrent[%=class_name%]Copy;
+
+        public NHibernate[%=class_name%]Controller(ISessionFactory sessionFactory)
+        {
+            this.sessionFactory = sessionFactory;
+        }
+
+        private ISession Session
+        {
+            get
+            {
+                return SessionFactoryUtils.GetSession(sessionFactory, false);
+            }
+        }
+
+        public void cmdEdit[%=class_name%]([%=class_name%] obj)
+        {
+            objCurrent[%=class_name%]Edit = obj;
+        }
+
+        public void cmdDelete[%=class_name%]([%=class_name%] obj)
+        {
+            objCurrent[%=class_name%]Delete = obj;
+        }
+
+        public void cmdDetail[%=class_name%]([%=class_name%] obj)
+        {
+            objCurrent[%=class_name%]Detail = obj;
+        }
+
+        public void cmdCopy[%=class_name%]([%=class_name%] obj)
+        {
+            objCurrent[%=class_name%]Copy = obj;
+        }
+
+        public void Clear()
+        {
+            objCurrent[%=class_name%]Edit = null;
+            objCurrent[%=class_name%]Delete = null;
+            objCurrent[%=class_name%]Detail = null;
+            objCurrent[%=class_name%]Copy = null;
+        }
+
+        public [%=class_name%] Current[%=class_name%]Edit
+        {
+            get
+            {
+                [%=class_name%] obj = objCurrent[%=class_name%]Edit;
+                SimpleLockObject(obj);
+                return obj;
+            }
+        }
+
+        public [%=class_name%] Current[%=class_name%]Delete
+        {
+            get
+            {
+                [%=class_name%] obj = objCurrent[%=class_name%]Delete;
+                SimpleLockObject(obj);
+                return obj;
+            }
+        }
+
+        public [%=class_name%] Current[%=class_name%]Detail
+        {
+            get
+            {
+                [%=class_name%] obj = objCurrent[%=class_name%]Detail;
+                SimpleLockObject(obj);
+                return obj;
+            }
+        }
+
+        public [%=class_name%] Current[%=class_name%]Copy
+        {
+            get
+            {
+                [%=class_name%] obj = objCurrent[%=class_name%]Copy;
+                SimpleLockObject(obj);
+                return obj;
+            }
+        }
+
+        public void SimpleLockObject(Object obj)
+        {
+            try
+            {
+                if (Session != null && obj != null) Session.Lock(obj, LockMode.None);
+            }
+            catch (Exception generalExcp)
+            {
+                Session.Clear();
+                try
+                {
+                    if (Session != null && obj != null) Session.Lock(obj, LockMode.None);
+                }
+                catch (Exception nullExcp)
+                {
+                }
+            }
+        }
+
+    }

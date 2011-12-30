@@ -1,0 +1,26 @@
+using System;
+using Domain;
+using System;
+
+public interface I[%=class_name%]Controller
+{
+
+        void cmdEdit[%=class_name%]([%=class_name%] obj);
+
+        [%=class_name%] Current[%=class_name%]Edit { get;}
+
+        void cmdDelete[%=class_name%]([%=class_name%] obj);
+
+        [%=class_name%] Current[%=class_name%]Delete { get;}
+
+        void cmdDetail[%=class_name%]([%=class_name%] obj);
+
+        [%=class_name%] Current[%=class_name%]Detail { get;}
+
+        void cmdCopy[%=class_name%]([%=class_name%] obj);
+
+        [%=class_name%] Current[%=class_name%]Copy { get;}
+
+        void Clear();
+
+}

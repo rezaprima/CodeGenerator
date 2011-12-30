@@ -1,0 +1,684 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Web.UI.WebControls;
+using Dao;
+using Domain;
+using System.Data;
+using Spring.Web.UI;
+
+public partial class Form[%=class_name%] : FormPage
+{
+    #region Fields
+
+    // Data utama. Ia hidup pada postback saja
+    protected [%=class_name%] obj[%=class_name%] = new [%=class_name%](); // Harus dibuat agar bisa binding
+
+    private I[%=class_name%]Dao idao[%=class_name%];
+[%references.each do |reference|%]
+    private I[%=reference.class_name%]Dao idao[%=reference.class_name%];
+[%end%]
+    private I[%=class_name%]Controller ictl[%=class_name%];
+
+    // Id unique bagi session yang menyimpan data yang
+    //  harus tetap hidup lintas request baru (InitializeModel dipanggil berulang)
+    // Hidup pada postback dan non postback (via hidden field).
+    // Salah satu gunanya adalah agar tidak kehilangan data dari caller
+    private string strInitSessionId;
+
+    // Data yang hidup pada non postback juga postback (post back untuk dropdown) => simpan di session
+    //private PageStates.MORPH morph = PageStates.MORPH.Add;
+    //private PageStates.ACTION? action;
+
+    #endregion
+
+    #region Properties
+
+    protected override DataObject Model
+    {
+        get { return obj[%=class_name%]; }
+    }
+
+    public [%=class_name%] [%=class_name%]
+    {
+        get { return obj[%=class_name%]; }
+        set { obj[%=class_name%] = value;}
+    }
+
+    public I[%=class_name%]Dao [%=class_name%]Dao
+    {
+        set { this.idao[%=class_name%] = value; }
+    }
+
+    public I[%=class_name%]Controller [%=class_name%]Controller
+    {
+        set {ictl[%=class_name%] = value;}
+    }
+
+    public string InitSessionId
+    {
+        get { return strInitSessionId; }
+        set { strInitSessionId = value; }
+    }
+
+[%references.each do |reference| %]
+    public I[%=class_name%]Dao [%=class_name%]Dao
+    {
+        set { idao[%=class_name%] = value;}
+    }
+[%end%]
+
+    #endregion
+
+    public Form[%=class_name%]()
+    {
+    }
+
+    protected void SetButtons()
+    {
+        SetResetButton(bReset);
+        SetBackButton(bBack);
+        SetNextButton(bNext);
+        SetSubmitButton(bSubmit);
+    }
+
+    #region Model Management and Data Binding Methods
+
+    // Menyiapkan value secara lengkap
+    // Dipanggil saat:
+    //  1. Pertama kali halaman diakses (bukan postback)
+    protected override void InitializeModel() // Saat: First Url Enter: Pertama, Next = OnInitializeControls
+    {
+        LoggerImax.Debug("MEMANGGIL: InitializeModel");
+        initSessionId = "isID" + new Random().Next(10000);
+
+        if (Session["EditRejected"] != null && ((bool)Session["EditRejected"]) == true)
+        {
+            action = PageStates.ACTION.Edit;
+        }
+        LoggerImax.Debug("1. action = " + action.ToString());
+        LogModel((Hashtable)SaveModel());
+
+        // Mengambil data dari [%=class_name%] controller
+        if (Session["model"] != null) // Juga dari asp:submit
+        {
+            LoadModel(Session["model"]);
+            Session["model"] = null;
+        }
+
+        LoggerImax.Debug("2. action = " + action.ToString());
+        LogModel((Hashtable)SaveModel());
+
+        // Load data dari caller
+        if (Session["callerModel"] != null)
+        {
+            Session[initSessionId + "callerModel"] = Session["callerModel"];
+            Session["callerModel"] = null;
+        }
+
+        LoggerImax.Debug("3. action = " + action.ToString());
+        LogModel((Hashtable)SaveModel());
+
+        if (Session["[%=class_name%]"] != null)
+        {
+            LoggerImax.Debug("fetching Session['[%=class_name%]']");
+            obj[%=class_name%] = ([%=class_name%])Session["[%=class_name%]"];
+            Session["[%=class_name%]"] = null;
+        }
+
+        if (Session["myApprovalDataObj"] != null)
+        {
+            obj[%=class_name%] = ([%=class_name%])Session["myApprovalDataObj"];
+            Session["myApprovalDataObj"] = null; // Nullified to prevent being loaded by StepFinal
+            action = PageStates.ACTION.View;
+            morph = PageStates.MORPH.Detail;
+        }
+        LoggerImax.Debug("4. action = " + action.ToString());
+        LogModel((Hashtable)SaveModel());
+
+        if (Session["morph"] != null)
+        {
+            morph = (PageStates.MORPH)Session["morph"];
+            Session["morph"] = null;
+        }
+
+        LoggerImax.Debug("5. action = " + action.ToString());
+        LogModel((Hashtable)SaveModel());
+
+        //if (Session["EditRejected"] != null && ((bool)Session["EditRejected"] == true))
+        //{
+        //    if (morph == PageStates.MORPH.Detail) action = PageStates.ACTION.View;
+        //    else action = PageStates.ACTION.Edit;
+        //}
+
+        if (action == null)
+        {
+            if (morph == PageStates.MORPH.Add || morph == PageStates.MORPH.Edit)
+                action = PageStates.ACTION.Edit;
+            else
+                action = PageStates.ACTION.View;
+        }
+
+        LoggerImax.Debug("6. action = " + action.ToString());
+        LogModel((Hashtable)SaveModel());
+
+        //PreventUnauthorizedLinkAccess();
+
+        Session["model"] = SaveModel();
+    }
+
+    // Menyimpan model yang direturn dalam session
+    // Dipanggil saat:
+    //  1. Setelah InitializeModel() dan sebelum render
+    protected override object SaveModel()
+    {
+        LoggerImax.Debug("MEMANGGIL: SaveModel");
+        IDictionary model = (IDictionary) base.SaveModel();
+        model.Add("[%=class_name%]", obj[%=class_name%]);
+[%subtables.each do |subtable| %]
+        model.Add("[%=subtable.class_name%]ListPageNum", [%=subtable.class_name%]List.CurrentPageIndex);
+[% end %]
+        return model;
+    }
+
+    // Mengambil data session (yang di-return oleh SaveModel())
+    // Dipanggil saat:
+    //  1. postback
+    protected override void LoadModel(object savedModel)    // Saat: Search: Next = OnInitializeControls
+    {
+        LoggerImax.Debug("MEMANGGIL: LoadModel");
+        if (savedModel == null) return;
+
+        IDictionary model = (IDictionary)savedModel;
+        base.LoadModel(savedModel);
+        obj[%=class_name%] = ([%=class_name%])model["[%=class_name%]"];
+[%subtables.each do |subtable| %]
+        if (model["[%=subtable.class_name%]ListPageNum"] != null)
+        {
+            [%=subtable.class_name%]List.CurrentPageIndex = (int)model["[%=subtable.class_name%]ListPageNum"];
+        }
+[% end %]
+    }
+
+    // Membuat asosiasi antara object instance yang ada di controller (controller's instance variables) ke form di aspx
+    // Dipanggil saat:
+    //  1. Pertama kali halaman ini di-instantiasi (pertama kali di-load, lalu langsung di-cache)
+    protected override void InitializeDataBindings()    // Saat: Search: Pertama, Next = LoadModel
+    {
+        // Karena repot untuk membuat Class Form tersendiri, disimulasikan dengan BindFormData()?
+
+        LoggerImax.Debug("MEMANGGIL: InitializeDataBindings");
+
+        BindingManager.AddBinding("hfId.Value", "obj[%=class_name%].intPrimaryKey",Spring.DataBinding.BindingDirection.TargetToSource);
+
+        Spring.Globalization.IFormatter currencyFormatter = new Spring.Globalization.Formatters.CurrencyFormatter();
+        //Spring.Globalization.IFormatter dateTimeFormatter = new Spring.Globalization.Formatters.DateTimeFormatter(
+        //Spring.Globalization.IFormatter filteringFormatter = new Spring.Globalization.Formatters.FilteringFormatter();
+        Spring.Globalization.IFormatter floatFormatter = new Spring.Globalization.Formatters.FloatFormatter();
+        Spring.Globalization.IFormatter integerFormatter = new Spring.Globalization.Formatters.IntegerFormatter();
+        Spring.Globalization.IFormatter nullFormatter = new Spring.Globalization.Formatters.NullFormatter();
+        Spring.Globalization.IFormatter numberFormatter = new Spring.Globalization.Formatters.NumberFormatter();
+        Spring.Globalization.IFormatter percentFormatter = new Spring.Globalization.Formatters.PercentFormatter();
+        Spring.Globalization.IFormatter emptyStringFormatter = new Spring.Globalization.Formatters.HasTextFilteringFormatter("", nullFormatter);
+
+        Spring.Globalization.IFormatter defaultZeroFormatter = new Spring.Globalization.Formatters.HasTextFilteringFormatter("0", numberFormatter);
+
+[% ordinary_fields.each do |field| %]
+[%   if field.reference? %]
+        BindingManager.AddBinding("ddl[%=field.plain_name%].SelectedValue", "[%=class_name%].[%=field.name_with_prefix%]");
+[%   elsif field.lookup? %]
+        BindingManager.AddBinding("ddl[%=field.plain_name%].SelectedValue", "[%=class_name%].[%=field.name_with_prefix%]");
+[%   elsif field.boolean? %]
+        BindingManager.AddBinding("chk[%=field.plain_name%].Checked", "[%=class_name%].[%=field.name_with_prefix%]");
+[%   elsif field.datetime? %]
+        BindingManager.AddBinding("dt[%=field.plain_name%].Date", "[%=class_name%].[%=field.name_with_prefix%]");
+[%   elsif field.numeric? %]
+        BindingManager.AddBinding("txt[%=field.plain_name%].Text", "[%=class_name%].[%=field.name_with_prefix%]", defaultZeroFormatter);
+[%   else %]
+        BindingManager.AddBinding("txt[%=field.plain_name%].Text", "[%=class_name%].[%=field.name_with_prefix%]");
+[%   end %]
+[% end %]
+
+//// Wajib demi menjaga session
+        BindingManager.AddBinding("hfIsid.Value", "InitSessionId");
+    }
+
+    protected override void CleanupNumericFields()
+    {
+        //CleanupNumericField(txtWalletSize);
+    }
+
+
+    // Unbinding data yang tidak bisa dibinding dengan AddBinding di atas
+    protected override void UnbindFormData()
+    {
+        CleanupNumericFields();
+        base.UnbindFormData();
+
+        if (obj[%=class_name%] != null)
+        {
+        //    obj[%=class_name%].strFullName = (obj[%=class_name%].strMiddleName.Length > 0) ? obj[%=class_name%].strFirstName + " " +
+        //        obj[%=class_name%].strMiddleName + " " + obj[%=class_name%].strLastName : obj[%=class_name%].strFirstName + " " +
+        //        obj[%=class_name%].strLastName;
+        //    obj[%=class_name%].intBranchIdPk = getBranchOfUser(UserIdPk);
+        //    if(txtTempCif.Text.Equals("")) obj[%=class_name%].strStatus="0";
+        //    else obj[%=class_name%].strStatus="1";
+        //    if(!dtBirthDate.IsNull) obj[%=class_name%].cls[%=class_name%]Profile.dtDateOfBirth = dtBirthDate.Date.Date;
+        }
+    }
+
+    // Binding data yang tidak bisa dibinding dengan AddBinding di atas
+    protected override void BindFormData()
+    {
+        base.BindFormData();
+
+        if (obj[%=class_name%] != null)
+        {
+[%subtables.each do |subtable|%]
+            [%=subtable.class_name%]List.DataSource = obj[%=class_name%].cls[%=subtable.class_name%]s;
+            [%=subtable.class_name%]List.DataBind();
+
+[%end%]
+            ////Jika ada customer id-nya, isi field terkait
+            //if (obj[%=class_name%].intCustomerIdPk > 0)
+            //{
+            //    LoadCustomerRelatedDataToForm();
+            //}
+
+            //Customer objCustomer = getCustomerByIdPk(obj[%=class_name%].intReferralCif);
+            //if (objCustomer != null) txtReferralCIF.Text = objCustomer.strFullName;
+
+            //if (obj[%=class_name%].cls[%=class_name%]Profile.chArrCustomerImage != null && obj[%=class_name%].cls[%=class_name%]Profile.chArrCustomerImage.Length > 0)
+            //{
+            //    LoggerImax.Debug("Displaying photo");
+            //    Session["CurrentPhoto"] = obj[%=class_name%].cls[%=class_name%]Profile.chArrCustomerImage;
+            //    img[%=class_name%]Image.ImageUrl = "~/src/ShowImage.aspx?imagename=CurrentPhoto";
+            //}
+            //if (obj[%=class_name%].cls[%=class_name%]Profile.chArrCustomerSignature != null && obj[%=class_name%].cls[%=class_name%]Profile.chArrCustomerSignature.Length > 0)
+            //{
+            //    LoggerImax.Debug("Displaying signature");
+            //    Session["CurrentSignature"] = obj[%=class_name%].cls[%=class_name%]Profile.chArrCustomerSignature;
+            //    img[%=class_name%]Signature.ImageUrl = "~/src/ShowImage.aspx?imagename=CurrentSignature";
+            //}
+            //if(obj[%=class_name%].cls[%=class_name%]Profile.dtDateOfBirth.Year != 1) dtBirthDate.Date = obj[%=class_name%].cls[%=class_name%]Profile.dtDateOfBirth;
+        }
+    }
+
+
+    #endregion
+
+    #region Page Lifecycle Methods
+
+    protected override void OnInitializeControls(EventArgs e)   // Saat: First Url Enter: Next = OnLoad
+    {                                                           // Saat: Search: Next = OnLoad
+        LoggerImax.Debug("MEMANGGIL: OnInitializeControls");
+
+        if (!IsPostBack)
+        {
+            BindDropdowns();
+        }
+    }
+
+    protected override void BindDropdowns()
+    {
+        LoggerImax.Debug("MEMANGGIL: BindDropdowns");
+
+        //ddlBranch.DataSource = idaoBranch.FindAll();
+        //ddlBranch.DataTextField = "strName";
+        //ddlBranch.DataValueField = "intBranchIdPk";
+        //ddlBranch.DataBind();
+
+[% fields.select{|f| f.reference?}.each do |field| %]
+        ddl[%=field.plain_name%].DataSource = idao[%=class_name%].FindGeneric("from [%=field.reference_class_name%]");
+        ddl[%=field.plain_name%].DataTextField = "[%=field.reference_key%]";
+        ddl[%=field.plain_name%].DataValueField = "[%=field.reference_key%]";
+        ddl[%=field.plain_name%].DataBind();
+[% end %]
+
+[% fields.select{|f| f.lookup?}.each do |field| %]
+        DropDownCommonHelper.BindLookup("[%=field.lookup_category.upcase%]", ddl[%=field.plain_name%]);
+[% end %]
+    }
+
+    protected override void OnLoad(EventArgs e) // Saat: First Url Enter: Next = SaveModel
+    {                                           // Saat: Search: Next = LoadModel
+        LoggerImax.Debug("MEMANGGIL: OnLoad");
+        SetButtons();
+        base.OnLoad(e);
+        //if (!IsPostBack)
+        //{
+        //    HelpPrepareForm();
+        //    // Save to session on the end of fresh call (postback = false)
+        //    SaveToSession();
+        //}
+    }
+
+    //// Menyimpan ke session dengan id khusus
+    //private void SaveToSession()
+    //{
+    //    IDictionary sessionData = new Hashtable();
+    //    sessionData["morph"] = morph;
+    //    sessionData["action"] = action;
+    //    //Session["[%=class_name%]SessionID"] = initSessionId;
+    //    Session[initSessionId] = sessionData;
+    //}
+
+    #endregion
+
+    #region Controller Methods
+
+//    protected void Submit(object sender, EventArgs e)
+//    {
+//        LoggerImax.Debug("MEMANGGIL: Submit");
+//        RestoreFromSession();
+
+//        if (morph == PageStates.MORPH.Delete)
+//        {
+//            LoggerImax.Debug("Benar-benar menghapus OBJECT.id: " + obj[%=class_name%].int[%=class_name%]IdPk);
+//            string message = ApprovalEngine.Delete(obj[%=class_name%], "DELETE_[%=class_name%]", 0, IsApprovalRequired(), IpAddress, UserIdPk);
+
+//            ClearSession();
+//            // Confirm and then Redirect to list
+//            Session["refresh"] = true;
+//            ReturnCallerModel();
+//            ConfirmResult(message, GetResultUrl("cmdList[%=class_name%]"));
+//        }
+//        else if (action == PageStates.ACTION.Edit) // Jika masih halaman new
+//        {
+//            //action = PageStates.ACTION.View; // Beritahukan action selanjutnya adalah review
+
+////            Session["callerModel"] = SaveModel();
+//            Session["callerModel"] = Session[initSessionId + "callerModel"];
+//            SetResult("cmdNextEdit[%=class_name%]"); // Reload untuk direview
+//        }
+//        else if (action == PageStates.ACTION.View) // Pasti ingin mengupdate database
+//        {
+//            //string message = "";
+//            //if (morph == PageStates.MORPH.Add)
+//            //{
+//            //    LoggerImax.Debug("Benar-benar membuat OBJECT");
+//            //    obj[%=class_name%].intCreatedBy = UserIdPk;
+//            //    obj[%=class_name%].dtCreatedDate = DateTime.Now;
+//            //    message = ApprovalEngine.Save(obj[%=class_name%], "ADD_[%=class_name%]", 0, IsApprovalRequired(), IpAddress, UserIdPk);
+//            //}
+//            //else if (morph == PageStates.MORPH.Edit)
+//            //{
+//            //    LoggerImax.Debug("Benar-benar mengupdate OBJECT.id: " + obj[%=class_name%].int[%=class_name%]IdPk);
+//            //    obj[%=class_name%].intUpdatedBy = UserIdPk;
+//            //    obj[%=class_name%].dtUpdatedDate = DateTime.Now;
+//            //    message = ApprovalEngine.SaveOrUpdate(obj[%=class_name%], "EDIT_[%=class_name%]", 0, IsApprovalRequired(), IpAddress, UserIdPk);
+//            //}
+
+//            //ClearSession();
+//            //Session["refresh"] = true;
+//            //ReturnCallerModel();
+//            //// Confirm and then Redirect to list
+//            //ConfirmResult(message, GetResultUrl("cmdList[%=class_name%]"));
+
+//            Session["callerModel"] = SaveModel();
+//            SetResult("cmdNextEdit[%=class_name%]"); // Reload untuk direview
+
+//        }
+//    }
+
+    protected override string deleteCommand() { return "DELETE_[%=table_name%]"; }
+    protected override string addCommand() { return "ADD_[%=table_name%]"; }
+    protected override string editCommand() { return "EDIT_[%=table_name%]"; }
+
+    protected override string selfRedirectCommand() { return "self"; }
+    protected override string listRedirectCommand() { return "cmdList[%=class_name%]"; }
+    //protected override string listRedirectCommand() { return "cmdReview[%=class_name%]"; }
+    protected override string nextRedirectCommand() { return "cmdNextEdit[%=class_name%]"; }
+    protected override string previousRedirectCommand() { return "cmdPreviousEdit[%=class_name%]"; }
+    protected override string reviewRedirectCommand() { return "cmdReview[%=class_name%]"; }
+
+    protected override bool IsApprovalRequired()
+    {
+        //return base.IsApprovalRequired();
+        return false;
+    }
+
+    protected override void setCreatedFields(decimal intCreatedBy, DateTime dtCreatedDate)
+    {
+        obj[%=class_name%].intCreatedBy = UserIdPk;
+        obj[%=class_name%].dtCreatedDate = DateTime.Now;
+    }
+
+    protected override void setUpdatedFields(decimal intUpdatedBy, DateTime dtUpdatedDate)
+    {
+        obj[%=class_name%].intUpdatedBy = UserIdPk;
+        obj[%=class_name%].dtUpdatedDate = DateTime.Now;
+    }
+
+
+    // Menyimpan ke session dengan id khusus
+    //private void RestoreFromSession()
+    //{
+    //    IDictionary sessionData = (IDictionary)Session[initSessionId];
+    //    morph = (PageStates.MORPH)sessionData["morph"];
+    //    action = (PageStates.ACTION)sessionData["action"];
+    //}
+
+    //protected void Next(object sender, EventArgs e)
+    //{
+    //    LoggerImax.Debug("MEMANGGIL: Next");
+    //    RestoreFromSession();
+    //    if (isModelInvalid()) return;
+    //    if (action == PageStates.ACTION.Edit) // Jika masih halaman new
+    //    {
+    //        //Session["callerModel"] = Session[initSessionId + "callerModel"];
+    //        Session["model"] = SaveModel();
+    //        SetResult("cmdNextEdit[%=class_name%]"); // Reload untuk direview
+    //    }
+    //    else if (action == PageStates.ACTION.View) // Pasti ingin mengupdate database
+    //    {
+    //        //Session["callerModel"] = SaveModel();
+    //        Session["model"] = SaveModel();
+    //        SetResult("cmdNextEdit[%=class_name%]"); // Reload untuk direview
+    //    }
+    //}
+
+    protected override bool isModelInvalid()
+    {
+        return false;
+    }
+
+    /**
+     * Menentukan tindakan saat tombol Back diklik
+     */
+
+    //protected void Back(object sender, EventArgs e)
+    //{
+    //    LoggerImax.Debug("MEMANGGIL: Back");
+    //    RestoreFromSession();
+    //    LoggerImax.Debug("MORPH = " + morph);
+    //    switch (morph)
+    //    {
+    //        case PageStates.MORPH.Add:
+    //        case PageStates.MORPH.Edit:
+    //            if (action == PageStates.ACTION.View)
+    //            {
+    //                action = PageStates.ACTION.Edit;
+    //                Session["model"] = SaveModel();
+    //                SetResult("self");
+    //            }
+    //            else // Saat ini halaman Add/Edit
+    //            {
+    //                ClearSession();
+    //                ReturnCallerModel();
+    //                SetResult("cmdList[%=class_name%]");
+    //            }
+    //            break;
+    //        case PageStates.MORPH.Delete:
+    //        case PageStates.MORPH.Detail:
+    //            ClearSession();
+    //            ReturnCallerModel();
+    //            if (Session["myApprovalDataObj"]!=null)
+    //            {
+    //                Session["myApprovalDataObj"] = null;
+    //                SetResult("cmdWorkspace");
+    //            }
+    //            // Have to resort to this because Session["myApprovalDataObj"] has been nullified
+    //            // to prevent it being loaded by StepFinal. Gotta find another way to prevent it.
+    //            else if (Session["CurrentApprovalResource"] != null &&
+    //                (
+    //                    (((string)Session["CurrentApprovalResource"]) == "INBOX") ||
+    //                (((string)Session["CurrentApprovalResource"]) == "OUTBOX") ||
+    //                (((string)Session["CurrentApprovalResource"]) == "REJECTED")
+    //                )&&
+    //                Session["CurrentApprovalData"] != null)
+    //            {
+    //                Session["myApprovalDataObj"] = null;
+    //                Session["CurrentApprovalData"] = null;
+    //                Session["CurrentApprovalResource"] = null;
+    //                Session["model"] = null;
+    //                SetResult("cmdWorkspace");
+    //            }
+    //            else
+    //            {
+    //                SetResult("cmdList[%=class_name%]");
+    //            }
+    //            break;
+    //    }
+    //}
+
+    //private void ReturnCallerModel()
+    //{
+    //    // Return the model back
+    //    Session["model"] = Session[initSessionId + "callerModel"];
+    //    Session[initSessionId + "callerModel"] = null;
+    //}
+
+    //private void ClearSession()
+    //{
+    //    // Clear session
+    //    Session[initSessionId] = null;
+    //}
+
+    protected override bool IsNewModel()
+    {
+        return obj[%=class_name%].intPrimaryKey == 0;
+    }
+
+    protected override void ReloadModelFromDatabase()
+    {
+        obj[%=class_name%] = idao[%=class_name%].FindById(obj[%=class_name%].intPrimaryKey);
+    }
+
+    protected override void InitializeNewModel()
+    {
+        obj[%=class_name%] = new[%=class_name%]();
+    }
+
+    private [%=class_name%] new[%=class_name%]()
+    {
+        [%=class_name%] p = new [%=class_name%]();
+        //p.cls[%=class_name%]Profile = new [%=class_name%]Profile();
+        return p;
+    }
+    #endregion
+
+
+    /* ---------- HELPERS -------------- */
+
+    // Membantu mengisi field-field form yang tidak bisa dilakukan dengan Binding
+    protected override void HelpPrepareForm()
+    {
+        base.HelpPrepareForm();
+    }
+
+
+    protected override void SetFormToReviewMode()
+    {
+        base.SetFormToReviewMode();
+[% subtables.each do |subtable| %]
+        bAdd[%=subtable.class_name%].Enabled = false;
+[% end %]
+    }
+
+    protected override System.Web.UI.Control FormControl()
+    {
+        return txtAumGrowthAmount.Parent;
+    }
+
+
+    #region Action Authorized Session Names
+
+    protected override String AddActionAuthorizedSessionName()
+    {
+        return "Add[%=class_name%].authorized";
+    }
+    protected override String EditActionAuthorizedSessionName()
+    {
+        return "Edit[%=class_name%].authorized";
+    }
+    protected override String DeleteActionAuthorizedSessionName()
+    {
+        return "Delete[%=class_name%].authorized";
+    }
+    protected override String DetailActionAuthorizedSessionName()
+    {
+        return "Detail[%=class_name%].authorized";
+    }
+
+
+    #endregion
+
+    private void bindingFirst()
+    {
+    }
+
+[%subtables.each do |subtable| %]
+    #region [%=subtable.class_name%]List
+    protected void [%=subtable.class_name%]ListItemDataBound(Object s, DataGridItemEventArgs e)
+    {
+        if ((e.Item.ItemType == ListItemType.Item) || (e.Item.ItemType == ListItemType.AlternatingItem))
+        {
+
+        }
+    }
+
+    protected void [%=subtable.class_name%]ListItemCommand(object source, DataGridCommandEventArgs e)
+    {
+        if( e.Item.ItemIndex < 0 ) return;
+        IList<[%=subtable.class_name%]> listParam = obj[%=class_name%].cls[%=subtable.class_name%]s;
+        [%=subtable.class_name%] selected[%=subtable.class_name%] = listParam[e.Item.ItemIndex];
+        switch (e.CommandName)
+        {
+            case "cmdDelete[%=subtable.class_name%]":
+                bindingFirst();
+                [%=subtable.class_name%]List.SelectedIndex = e.Item.ItemIndex;
+                //ictl[%=subtable.class_name%].cmdDelete[%=subtable.class_name%](selected[%=subtable.class_name%]);
+                //SetResult(e.CommandName);
+                listParam.Remove(selected[%=subtable.class_name%]);
+                SetResult("self");
+                break;
+        }
+    }
+
+    protected void [%=subtable.class_name%]ListPageIndexChanged(object source, DataGridPageChangedEventArgs e)
+    {
+        /*
+         * Checking Current Page State Object
+         * */
+        [%=subtable.class_name%]List.DataSource = [%=class_name%].cls[%=subtable.class_name%]s;
+
+        [%=subtable.class_name%]List.CurrentPageIndex = e.NewPageIndex;
+        [%=subtable.class_name%]List.DataBind();
+
+        /*
+         * Update Page Index
+         * */
+        Session["model"] = SaveModel();
+    }
+
+    protected void Add[%=subtable.class_name%](object sender, EventArgs e)
+    {
+        bindingFirst();
+        //ictl[%=class_name%].cmdEdit[%=class_name%]([%=class_name%]);
+        Session["Current[%=class_name%]"] = [%=class_name%];
+        SetResult("cmdAdd[%=subtable.class_name%]");
+    }
+    #endregion
+[% end %]
+}
